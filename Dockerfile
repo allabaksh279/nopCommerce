@@ -5,12 +5,10 @@ RUN dotnet publish -c Release src/Presentation/Nop.Web -o published/
 RUN mkdir published/bin published/logs
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
-# Create/ignore existing user with -o flag
-RUN groupadd -g 1001 appgroup 2>/dev/null || true && \
-    useradd -u 1001 -g 1001 -m -s /bin/sh -o app 2>/dev/null || true
-COPY --from=build --chown=1001:1001 /nop/published/ /app/
-WORKDIR /app
+RUN adduser -D -h /usr/share/app -s /bin/sh app
 USER app
+WORKDIR usr/share/app
+COPY --from=build --chown=1001:1001 /nop/published/ /usr/share/app
 EXPOSE 5000
 CMD ["dotnet", "Nop.Web.dll", "--urls=http://0.0.0.0:5000"]
 
