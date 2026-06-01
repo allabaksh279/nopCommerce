@@ -16,9 +16,9 @@ jobs:
             - name: restore
               run: dotnet restore src/Presentation/Nop.web/Nop.Web.csproj
             - name: build
-              run: dotnet build --configuration Debug src/Presentation/Nop.web/Nop.Web.csproj --no-restore
+              run: dotnet build --configuration Debug src/Presentation/Nop.web/Nop.Web.csproj
             - name: test
-              run: dotnet test src/Tests/Nop.Tests/Nop.Tests.csproj --no-restore --no-build
+              run: dotnet test src/Tests/Nop.Tests/Nop.Tests.csproj
             - name: publish
-              run: dotnet publish --configuration Release src/Presentation/Nop.web/Nop.Web.csproj --no-restore --no-build -o ./publish        
+              run: dotnet publish src/Presentation/Nop.Web/Nop.Web.csproj -c Release -o ./published        
                           
