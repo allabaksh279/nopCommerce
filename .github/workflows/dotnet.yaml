@@ -22,6 +22,9 @@ jobs:
       - name: Show .NET info
         run: dotnet --info
 
+      - name: Setup ReportGenerator
+        run: dotnet tool install --global dotnet-reportgenerator-globaltool  
+
       - name: Restore
         run: dotnet restore src/Presentation/Nop.Web/Nop.Web.csproj
 
@@ -30,6 +33,48 @@ jobs:
 
       - name: Test
         run: dotnet test src/Tests/Nop.Tests/Nop.Tests.csproj --configuration Release --no-restore
+      - name: Test with TRX and JUnit
+        run: |
+          dotnet test src/Tests/Nop.Tests/Nop.Tests.csproj \
+            --configuration Release \
+            --no-restore \
+            --logger "trx;LogFileName=test-results.trx" \
+            --logger "junit;LogFileName=test-results.xml" \
+            --results-directory ./artifacts/test-results
 
-      - name: Publish
-        run: dotnet publish src/Presentation/Nop.Web/Nop.Web.csproj --configuration Release --no-build --output ./published
+      - name: Generate HTML report
+        if: always()
+        run: |
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          reportgenerator \
+            -reports:"./artifacts/test-results/**/*.trx" \
+            -targetdir:"./artifacts/test-results/html" \
+            -reporttypes:"Html"
+      - name: Publish app
+        run: dotnet publish src/Presentation/Nop.Web/Nop.Web.csproj --configuration Release --no-build --output ./artifacts/published
+      - name: Prepare package name
+        id: vars
+        run: |
+          echo "repo_name=${GITHUB_REPOSITORY##*/}" >> $GITHUB_OUTPUT
+          echo "zip_name=${GITHUB_REPOSITORY##*/}-${GITHUB_RUN_NUMBER}.zip" >> $GITHUB_OUTPUT
+
+      - name: Stage artifact contents
+        if: always()
+        run: |
+          mkdir -p ./artifact-package/test-results
+          cp -r ./artifacts/published ./artifact-package/published
+          cp -r ./artifacts/test-results ./artifact-package/test-results
+ 
+      - name: Create zip
+        if: always()
+        run: |
+          cd artifact-package
+          zip -r "../${{ steps.vars.outputs.zip_name }}" .
+
+      - name: Upload zip artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.vars.outputs.zip_name }}
+          path: ./${{ steps.vars.outputs.zip_name }}
+          compression-level: 0      
