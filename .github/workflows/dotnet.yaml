@@ -1,25 +1,35 @@
----
+name: nopCommerce CI
+
 on:
-    pull_request:
-        branches:
-            - develop
-    workflow_dispatch:    
+  pull_request:
+    branches:
+      - develop
+  workflow_dispatch:
+
 jobs:
-    build:
-        runs-on: ubuntu-latest
-        steps:
-            - name: Setup dotnet
-              uses: actions/setup-dotnet@v5
-              with:
-                  dotnet-version: | 
-                   10.0.x
-            - uses: actions/checkout@v5
-            - name: restore
-              run: dotnet restore src/Presentation/Nop.web/Nop.Web.csproj
-            - name: build
-              run: dotnet build --configuration Debug src/Presentation/Nop.web/Nop.Web.csproj
-            - name: test
-              run: dotnet test src/Tests/Nop.Tests/Nop.Tests.csproj
-            - name: publish
-              run: dotnet publish src/Presentation/Nop.Web/Nop.Web.csproj -c Release -o ./published        
-                          
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Show .NET info
+        run: dotnet --info
+
+      - name: Restore
+        run: dotnet restore src/Presentation/Nop.Web/Nop.Web.csproj
+
+      - name: Build
+        run: dotnet build src/Presentation/Nop.Web/Nop.Web.csproj --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test src/Tests/Nop.Tests/Nop.Tests.csproj --configuration Release --no-restore
+
+      - name: Publish
+        run: dotnet publish src/Presentation/Nop.Web/Nop.Web.csproj --configuration Release --no-build --output ./published
