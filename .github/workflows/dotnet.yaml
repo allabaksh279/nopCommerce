@@ -13,7 +13,7 @@ jobs:
               with:
                   dotnet-version: 10.0.x
             - uses: actions/checkout@v5
-            - name: restore
+            - name: restore dependencies
               run: dotnet restore src/Presentation/Nop.web/Nop.Web.csproj
             - name: build
               run: dotnet build --configuration Debug src/Presentation/Nop.web/Nop.Web.csproj
