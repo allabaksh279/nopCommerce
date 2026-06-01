@@ -23,14 +23,18 @@ jobs:
         run: dotnet tool install --global dotnet-reportgenerator-globaltool
 
       - name: Ensure dotnet tools are in PATH
-        run: |
-          export PATH="$PATH:$HOME/.dotnet/tools"
-          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+        run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
 
       - name: Create directories
         run: |
           mkdir -p ./test-results
           mkdir -p ./published
+
+      - name: Prepare artifact variables
+        id: vars
+        run: |
+          echo "repo_name=${GITHUB_REPOSITORY##*/}" >> "$GITHUB_OUTPUT"
+          echo "zip_name=${GITHUB_REPOSITORY##*/}-${GITHUB_RUN_NUMBER}.zip" >> "$GITHUB_OUTPUT"
 
       - name: Restore
         run: dotnet restore src/Presentation/Nop.Web/Nop.Web.csproj
@@ -41,21 +45,32 @@ jobs:
       - name: Test
         id: test
         run: |
+          mkdir -p "$GITHUB_WORKSPACE/test-results"
           dotnet test src/Tests/Nop.Tests/Nop.Tests.csproj \
             --configuration Release \
             --no-restore \
-            --logger "trx;LogFileName=test-results.trx" \
-            --logger "junit;LogFileName=test-results.xml" \
-            --results-directory ./test-results
+            --logger "trx;LogFileName=$GITHUB_WORKSPACE/test-results/test-results.trx" \
+            --logger "junit;LogFileName=$GITHUB_WORKSPACE/test-results/test-results.xml"
+
+      - name: Debug test result files
+        if: always()
+        run: |
+          echo "Workspace: $GITHUB_WORKSPACE"
+          find "$GITHUB_WORKSPACE" -type f \( -name "*.trx" -o -name "*.xml" \) | sort || true
+          ls -lah "$GITHUB_WORKSPACE/test-results" || true
 
       - name: Generate HTML report
         if: always()
         run: |
           export PATH="$PATH:$HOME/.dotnet/tools"
-          reportgenerator \
-            -reports:"./test-results/*.trx" \
-            -targetdir:"./test-results/html" \
-            -reporttypes:Html
+          if [ -f "$GITHUB_WORKSPACE/test-results/test-results.trx" ]; then
+            reportgenerator \
+              -reports:"$GITHUB_WORKSPACE/test-results/test-results.trx" \
+              -targetdir:"$GITHUB_WORKSPACE/test-results/html" \
+              -reporttypes:"Html"
+          else
+            echo "TRX file not found, skipping HTML generation"
+          fi
 
       - name: Publish app
         if: always()
@@ -69,15 +84,15 @@ jobs:
         if: always()
         run: |
           mkdir -p ./artifact-package
-          cp -r ./published ./artifact-package/published
-          cp -r ./test-results ./artifact-package/test-results
+          [ -d ./published ] && cp -r ./published ./artifact-package/published || true
+          [ -d ./test-results ] && cp -r ./test-results ./artifact-package/test-results || true
           cd ./artifact-package
-          zip -r "../${{ github.event.repository.name }}-${{ github.run_number }}.zip" .
+          zip -r "../${{ steps.vars.outputs.zip_name }}" .
 
       - name: Upload artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.repository.name }}-${{ github.run_number }}
-          path: ./${{ github.event.repository.name }}-${{ github.run_number }}.zip
+          name: ${{ steps.vars.outputs.repo_name }}-${{ github.run_number }}
+          path: ./${{ steps.vars.outputs.zip_name }}
           retention-days: 5
